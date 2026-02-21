@@ -1,13 +1,12 @@
-using System.IdentifyModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
-using Microsoft.IdentifyModel.Tokens;
+using Microsoft.IdentityModel.Tokens;
 
 public class JwtService
 {
     private readonly string _secret;
-    
+
     public JwtService(IConfiguration config)
     {
         _secret = config["JwtSecret"] ?? throw new Exception("Missing JWT secret");
