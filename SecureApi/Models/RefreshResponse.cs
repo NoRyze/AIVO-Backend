@@ -1,6 +1,7 @@
 namespace SecureApi.Models;
 
-public record RefreshResponse
+public class RefreshResponse
 {
-    public required string Token { get; set; }
+    public string Token { get; set; } = string.Empty;
+    public string RefreshToken { get; set; } = string.Empty;
 }
