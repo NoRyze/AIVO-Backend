@@ -1,6 +1,5 @@
-using System.Net.Cache;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -14,9 +13,9 @@ var secret = builder.Configuration["JwtSecret"]
              ?? throw new Exception("Missing JWT secret");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(Options =>
+    .AddJwtBearer(options =>
     {
-        Options.TokenValidationParameters = new TokenValidationParameters
+        options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = false,
             ValidateAudience = false,
@@ -35,7 +34,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // 4. Endpoint LOGIN (public)
-app.MapPost("/auth/login", (LoginRequest, JwtService jwt) =>
+app.MapPost("/auth/login", (LoginRequest request, JwtService jwt) =>
 {
     if (request.Username == "admin" && request.Password == "admin")
     {
@@ -61,12 +60,16 @@ app.MapPost("/auth/login", (LoginRequest, JwtService jwt) =>
 });
 
 // 5. Endpoint sécurisé (exemple)
-app.MapGet("/secure/data", () => new { message = "Données secrètes AIVO" })
-    .RequireAuthorization();
+app.MapGet("/secure/data", (ClaimsPrincipal user) =>
+{
+    var username = user.Identity?.Name ?? "unknown";
+    return Results.Ok(new { message = $"Données secrètes AIVO pour {username}" });
+})
+.RequireAuthorization();
 
 app.Run();
 
-record LoginRequest(string Username, string Passwword);
+record LoginRequest(string Username, string Password);
 
 record LoginResponse
 {
