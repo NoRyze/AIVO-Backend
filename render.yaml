@@ -1,7 +1,6 @@
 services:
   - type: web
     name: aivo-backend
-    runtime: dotnet
     rootDir: SecureApi
     buildCommand: dotnet build
     startCommand: dotnet run --urls http://0.0.0.0:10000
