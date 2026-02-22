@@ -4,12 +4,16 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using SecureApi.Models;
 using SecureApi.Services;
+using SecureApi.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Services
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddSingleton<SecurityMonitor>();
 builder.Services.AddSingleton<RefreshStore>();
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
+builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
 
 var secret = builder.Configuration["JwtSecret"]
              ?? throw new Exception("Missing JWT secret");
@@ -108,7 +112,7 @@ app.MapPost("/auth/refresh", (RefreshRequest req,
     });
 });
 
-// Endpoint sécurisé
+// SECURE ENDPOINT
 app.MapGet("/secure/data", (ClaimsPrincipal user) =>
 {
     var username = user.Identity?.Name ?? "unknown";
@@ -116,34 +120,32 @@ app.MapGet("/secure/data", (ClaimsPrincipal user) =>
 })
 .RequireAuthorization();
 
-app.Run();
-
-public record LoginRequest(string Username, string Password);
-
-// Endpoint Change Password
+// CHANGE PASSWORD
 app.MapPost("/auth/change-password", async (
-    changePasswordRequest request,
+    ChangePasswordRequest request,
     IUserRepository userRepo,
-    ISessionRepository sessionRepo,
-    JwtService jwtService) =>
+    ISessionRepository sessionRepo) =>
 {
     var user = await userRepo.GetUserAsync(request.Username);
 
     if (user == null)
-        return Results.BadRequest(new { errror = "user_not_found" });
+        return Results.BadRequest(new { error = "user_not_found" });
 
-    // Vérification ancien mot de passe 
     if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
         return Results.BadRequest(new { error = "invalid_old_password" });
 
-    // Mise à jour du mot de passe
-    user.PasswordHash = BCrypt.Net.Bcrypt.HashPassword(request.NewPassword);
+    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
     user.PasswordChangeRequired = false;
 
     await userRepo.UpdateUserAsync(user);
 
-    // Invalidation de toute les sessions
     await sessionRepo.RevokeAllSessionsAsync(user.Username);
 
-    return Results Ok.(new { success = true });
+    return Results.Ok(new { success = true });
 });
+
+app.Run();
+
+// RECORDS
+public record LoginRequest(string Username, string Password);
+public record ChangePasswordRequest(string Username, string OldPassword, string NewPassword);
