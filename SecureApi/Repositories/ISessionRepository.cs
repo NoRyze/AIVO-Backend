@@ -1,0 +1,1 @@
+Task RevokeAllSessionsAsync(string username);

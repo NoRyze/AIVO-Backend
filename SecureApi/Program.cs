@@ -119,3 +119,31 @@ app.MapGet("/secure/data", (ClaimsPrincipal user) =>
 app.Run();
 
 public record LoginRequest(string Username, string Password);
+
+// Endpoint Change Password
+app.MapPost("/auth/change-password", async (
+    changePasswordRequest request,
+    IUserRepository userRepo,
+    ISessionRepository sessionRepo,
+    JwtService jwtService) =>
+{
+    var user = await userRepo.GetUserAsync(request.Username);
+
+    if (user == null)
+        return Results.BadRequest(new { errror = "user_not_found" });
+
+    // Vérification ancien mot de passe 
+    if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+        return Results.BadRequest(new { error = "invalid_old_password" });
+
+    // Mise à jour du mot de passe
+    user.PasswordHash = BCrypt.Net.Bcrypt.HashPassword(request.NewPassword);
+    user.PasswordChangeRequired = false;
+
+    await userRepo.UpdateUserAsync(user);
+
+    // Invalidation de toute les sessions
+    await sessionRepo.RevokeAllSessionsAsync(user.Username);
+
+    return Results Ok.(new { success = true });
+});

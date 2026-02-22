@@ -1,0 +1,1 @@
+Task UpdateUserAsync(User user);
