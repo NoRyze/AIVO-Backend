@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using SecureApi.Models;
 using SecureApi.Services;
 using SecureApi.Repositories;
+using BCrypt.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 
