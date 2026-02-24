@@ -6,6 +6,7 @@ using SecureApi.Models;
 using SecureApi.Services;
 using SecureApi.Repositories;
 using BCrypt.Net;
+using System.Security.Authentication.ExtendedProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,16 @@ builder.Services.AddSingleton<SecurityMonitor>();
 builder.Services.AddSingleton<RefreshStore>();
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
+builder.Services.AddCors(FileOptions =>
+{
+    FileOptions.AddPolicy("AivoCors", PolicyEnforcement =>
+    {
+        PolicyEnforcement.AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials()
+        .WithOrigins("https://graceful-lamington-186ce2.netlify.app");
+    });
+});
 
 var secret = builder.Configuration["JwtSecret"]
              ?? throw new Exception("Missing JWT secret");
@@ -41,7 +52,7 @@ app.Use(async (context, next) =>
     Console.WriteLine($"{context.Request.Method} {context.Request.Path}");
     await next();
 });
-
+app.UseCors("AivoCors");
 app.UseAuthentication();
 app.UseAuthorization();
 
