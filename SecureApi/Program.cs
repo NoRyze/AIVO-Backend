@@ -6,27 +6,35 @@ using SecureApi.Models;
 using SecureApi.Services;
 using SecureApi.Repositories;
 using BCrypt.Net;
-using System.Security.Authentication.ExtendedProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Services
+// -------------------------------------------------------------
+// SERVICES
+// -------------------------------------------------------------
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddSingleton<SecurityMonitor>();
 builder.Services.AddSingleton<RefreshStore>();
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
-builder.Services.AddCors(FileOptions =>
+
+// -------------------------------------------------------------
+// CORS (CORRECT & FONCTIONNEL)
+// -------------------------------------------------------------
+builder.Services.AddCors(options =>
 {
-    FileOptions.AddPolicy("AivoCors", PolicyEnforcement =>
+    options.AddPolicy("AivoCors", policy =>
     {
-        PolicyEnforcement.AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials()
-        .WithOrigins("https://graceful-lamington-186ce2.netlify.app");
+        policy.WithOrigins("https://graceful-lamington-186ce2.netlify.app")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
+// -------------------------------------------------------------
+// AUTHENTICATION JWT
+// -------------------------------------------------------------
 var secret = builder.Configuration["JwtSecret"]
              ?? throw new Exception("Missing JWT secret");
 
@@ -47,16 +55,22 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// -------------------------------------------------------------
+// MIDDLEWARE
+// -------------------------------------------------------------
 app.Use(async (context, next) =>
 {
     Console.WriteLine($"{context.Request.Method} {context.Request.Path}");
     await next();
 });
-app.UseCors("AivoCors");
+
+app.UseCors("AivoCors");       // ← IMPORTANT : AVANT Auth
 app.UseAuthentication();
 app.UseAuthorization();
 
+// -------------------------------------------------------------
 // LOGIN
+// -------------------------------------------------------------
 app.MapPost("/auth/login", (LoginRequest request,
                             HttpContext ctx,
                             JwtService jwt,
@@ -105,7 +119,9 @@ app.MapPost("/auth/login", (LoginRequest request,
     return Results.Unauthorized();
 });
 
-// REFRESH
+// -------------------------------------------------------------
+// REFRESH TOKEN
+// -------------------------------------------------------------
 app.MapPost("/auth/refresh", (RefreshRequest req,
                               JwtService jwt,
                               RefreshStore store) =>
@@ -130,7 +146,9 @@ app.MapPost("/auth/refresh", (RefreshRequest req,
     });
 });
 
-// SECURE ENDPOINT
+// -------------------------------------------------------------
+// ENDPOINT SÉCURISÉ
+// -------------------------------------------------------------
 app.MapGet("/secure/data", (ClaimsPrincipal user) =>
 {
     var username = user.Identity?.Name ?? "unknown";
@@ -138,7 +156,9 @@ app.MapGet("/secure/data", (ClaimsPrincipal user) =>
 })
 .RequireAuthorization();
 
+// -------------------------------------------------------------
 // CHANGE PASSWORD
+// -------------------------------------------------------------
 app.MapPost("/auth/change-password", async (
     ChangePasswordRequest request,
     IUserRepository userRepo,
@@ -156,7 +176,6 @@ app.MapPost("/auth/change-password", async (
     user.PasswordChangeRequired = false;
 
     await userRepo.UpdateUserAsync(user);
-
     await sessionRepo.RevokeAllSessionsAsync(user.Username);
 
     return Results.Ok(new { success = true });
@@ -164,6 +183,8 @@ app.MapPost("/auth/change-password", async (
 
 app.Run();
 
+// -------------------------------------------------------------
 // RECORDS
+// -------------------------------------------------------------
 public record LoginRequest(string Username, string Password);
 public record ChangePasswordRequest(string Username, string OldPassword, string NewPassword);
