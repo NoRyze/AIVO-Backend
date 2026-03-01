@@ -6,6 +6,7 @@ using SecureApi.Models;
 using SecureApi.Services;
 using SecureApi.Repositories;
 using BCrypt.Net;
+using System.Security.Cryptography.X509Certificates;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,7 @@ builder.Services.AddSingleton<RefreshStore>();
 builder.Services.AddSingleton<LogService>();
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
+builder.Services.AddSingleton<DocumentService>();
 
 // -------------------------------------------------------------
 // CORS
@@ -246,6 +248,102 @@ app.MapGet("/admin/logs", () =>
 .RequireAuthorization("admin");
 
 app.Run();
+
+// -------------------------------------------------------------
+// DOCUMENTS
+//--------------------------------------------------------------
+app.MapPost("/documents/upload", async (
+    HttpContext ctx,
+    DocumentService docs,
+    LogService log) =>
+{
+    var user = ctx.User.Identity?.Name;
+    if (user == null)
+        return Results.Unauthorized();
+
+    var file = ctx.Request.Form.Files.FirstOrDefault();
+    if (file == null)
+        return Results.BadRequest(new { error = "no_file"});
+    
+    var saved = docs.SaveFile(user, file);
+
+    log.Write($"Document uploaded by {user}: {saved.FileName}");
+
+    return Results.Ok(saved);
+})
+.RequireAuthorization();
+// ---------------------------------------------------------------
+// Liste des Documents utilisateur 
+// ---------------------------------------------------------------
+app.MapGet("/documents/list", (
+    HttpContext ctx,
+    DocumentService docs) =>
+{
+    var user = ctx.User.Identity?.Name;
+    if (user == null)
+        return Results.Unauthorized();
+
+    var list = docs.GetAll().Where(d => d.Owner == user);
+    return Results.Ok(list);
+})
+.RequireAuthorization();
+
+// ----------------------------------------------------------------
+// Supprimer un documents
+// ----------------------------------------------------------------
+app.MapDelete("/documents/delete/{id}", (
+    string id,
+    HttpContext ctx,
+    DocumentService docs,
+    LogService log) =>
+{
+    var user = ctx.User.Identity?.Name;
+    if (user == null)
+        return Results.Unauthorized();
+
+    var all = docs.GetAll();
+    var doc = all.FirstOrDefault(d => d.Id == id);
+
+    if (doc == null)
+        return Results.NotFound();
+
+    if (doc.Owner != user)
+        return Results.Forbid();
+
+    docs.Delete(id);
+
+    log.Write($"Document deleted by {user}: {doc.FileName}");
+
+    return Results.Ok(new { success = true });
+})
+.RequireAuthorization();
+
+// -------------------------------------------------------------------
+// Télécharger un document
+// -------------------------------------------------------------------
+app.MapGet("/documents/download/{id}", (
+    string id,
+    HttpContext ctx,
+    DocumentService docs) =>
+{
+    var user = ctx.User.Identity?.Name;
+    if (user == null)
+        return Results.Unauthorized();
+
+    var all = docs.GetAll();
+    var doc = all.FirstOrDefault(d => d.Id == id);
+
+    if (doc == null)
+        return Results.NotFound();
+
+    if (doc.Owner != user)
+        return Results.Forbid();
+
+    var bytes = File.ReadAllBytes(doc.Path);
+    return Results.File(bytes, "application/octet-stream", doc.FileName);
+})
+.RequireAuthorization();
+
 
 // -------------------------------------------------------------
 // RECORDS
