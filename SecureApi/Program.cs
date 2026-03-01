@@ -28,7 +28,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AivoCors", policy =>
     {
-        policy.WithOrigins("https://graceful-lamington-186ce2.netlify.app")
+        policy.WithOrigins(
+            "https://graceful-lamington-186ce2.netlify.app",
+            "https://aivo-pwa.pages.dev/"
+        )
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
