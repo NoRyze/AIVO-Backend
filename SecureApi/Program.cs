@@ -26,7 +26,7 @@ builder.Services.AddSingleton<DocumentService>();
 // -------------------------------------------------------------
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AivoCors", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
         policy.WithOrigins(
             "https://graceful-lamington-186ce2.netlify.app",
