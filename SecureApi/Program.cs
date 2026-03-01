@@ -30,7 +30,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
             "https://graceful-lamington-186ce2.netlify.app",
-            "https://aivo-pwa.pages.dev/"
+            "https://aivo-pwa.pages.dev"
         )
               .AllowAnyHeader()
               .AllowAnyMethod()
@@ -72,7 +72,7 @@ var app = builder.Build();
 // MIDDLEWARE
 // -------------------------------------------------------------
 app.UseRouting();
-app.UseCors("AivoCors");
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
