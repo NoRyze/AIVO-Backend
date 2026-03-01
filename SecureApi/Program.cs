@@ -15,6 +15,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<JwtService>();
 builder.Services.AddSingleton<SecurityMonitor>();
 builder.Services.AddSingleton<RefreshStore>();
+builder.Services.AddSingleton<LogService>();
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
 
@@ -65,26 +66,30 @@ var app = builder.Build();
 // -------------------------------------------------------------
 // MIDDLEWARE
 // -------------------------------------------------------------
-app.UseRouting();              // ← CRITIQUE pour OPTIONS + CORS
-app.UseCors("AivoCors");       // ← AVANT Auth
+app.UseRouting();
+app.UseCors("AivoCors");
 app.UseAuthentication();
 app.UseAuthorization();
 
 // -------------------------------------------------------------
 // LOGIN
 // -------------------------------------------------------------
-app.MapPost("/auth/login", (LoginRequest request,
-                            HttpContext ctx,
-                            JwtService jwt,
-                            SecurityMonitor monitor,
-                            RefreshStore store) =>
+app.MapPost("/auth/login", (
+    LoginRequest request,
+    HttpContext ctx,
+    JwtService jwt,
+    SecurityMonitor monitor,
+    RefreshStore store,
+    LogService log) =>
 {
     var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     var suspicious = monitor.RegisterIp(request.Username, ip);
 
+    log.Write($"Login attempt by {request.Username} from {ip}");
+
     if (suspicious)
     {
-        Console.WriteLine($"[AIVO-SEC] IP suspecte pour {request.Username} (double changement < 5min)");
+        log.Write($"Suspicious IP detected for {request.Username}");
         store.FlagPasswordChange(request.Username);
     }
 
@@ -92,47 +97,46 @@ app.MapPost("/auth/login", (LoginRequest request,
     {
         var token = jwt.GenerateToken("admin", "admin");
         var refresh = jwt.GenerateRefreshToken();
-
         store.Save("admin", refresh);
 
-        return Results.Ok(new LoginResponse
-        {
-            Token = token,
-            Role = "admin",
-            RefreshToken = refresh
-        });
+        log.Write("Admin logged in");
+
+        return Results.Ok(new LoginResponse(token, "admin", refresh));
     }
 
     if (request.Username == "user" && request.Password == "user")
     {
         var token = jwt.GenerateToken("user", "user");
         var refresh = jwt.GenerateRefreshToken();
-
         store.Save("user", refresh);
 
-        return Results.Ok(new LoginResponse
-        {
-            Token = token,
-            Role = "user",
-            RefreshToken = refresh
-        });
+        log.Write("User logged in");
+
+        return Results.Ok(new LoginResponse(token, "user", refresh));
     }
 
+    log.Write($"Failed login for {request.Username}");
     return Results.Unauthorized();
 });
 
 // -------------------------------------------------------------
 // REFRESH TOKEN
 // -------------------------------------------------------------
-app.MapPost("/auth/refresh", (RefreshRequest req,
-                              JwtService jwt,
-                              RefreshStore store) =>
+app.MapPost("/auth/refresh", (
+    RefreshRequest req,
+    JwtService jwt,
+    RefreshStore store,
+    LogService log) =>
 {
     if (!store.IsValid(req.Username, req.RefreshToken))
+    {
+        log.Write($"Invalid refresh token for {req.Username}");
         return Results.Unauthorized();
+    }
 
     if (store.MustChangePassword(req.Username))
     {
+        log.Write($"Password change required for {req.Username}");
         return Results.Json(new { error = "password_change_required" }, statusCode: 403);
     }
 
@@ -141,11 +145,9 @@ app.MapPost("/auth/refresh", (RefreshRequest req,
 
     store.Save(req.Username, newRefresh);
 
-    return Results.Ok(new RefreshResponse
-    {
-        Token = newToken,
-        RefreshToken = newRefresh
-    });
+    log.Write($"Refresh token used by {req.Username}");
+
+    return Results.Ok(new RefreshResponse(newToken, newRefresh));
 });
 
 // -------------------------------------------------------------
@@ -164,7 +166,8 @@ app.MapGet("/secure/data", (ClaimsPrincipal user) =>
 app.MapPost("/auth/change-password", async (
     ChangePasswordRequest request,
     IUserRepository userRepo,
-    ISessionRepository sessionRepo) =>
+    ISessionRepository sessionRepo,
+    LogService log) =>
 {
     var user = await userRepo.GetUserAsync(request.Username);
 
@@ -179,6 +182,8 @@ app.MapPost("/auth/change-password", async (
 
     await userRepo.UpdateUserAsync(user);
     await sessionRepo.RevokeAllSessionsAsync(user.Username);
+
+    log.Write($"Password changed for {request.Username}");
 
     return Results.Ok(new { success = true });
 });
@@ -211,10 +216,32 @@ app.MapGet("/admin/users", () =>
 // -------------------------------------------------------------
 // ADMIN — REVOKE ALL SESSIONS
 // -------------------------------------------------------------
-app.MapPost("/admin/revoke-all", (ISessionRepository repo) =>
+app.MapPost("/admin/revoke-all", (
+    ISessionRepository repo,
+    LogService log) =>
 {
     repo.RevokeAllSessions();
+    log.Write("Admin revoked all sessions");
     return Results.Ok(new { success = true });
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// ADMIN — LOGS
+// -------------------------------------------------------------
+app.MapGet("/admin/logs", () =>
+{
+    var lines = System.IO.File.Exists("Data/logs.txt")
+        ? System.IO.File.ReadAllLines("Data/logs.txt")
+        : Array.Empty<string>();
+
+    var logs = lines.Select(line =>
+    {
+        var parts = line.Split(" | ");
+        return new { timestamp = parts[0], message = parts[1] };
+    });
+
+    return Results.Ok(logs);
 })
 .RequireAuthorization("admin");
 
@@ -225,3 +252,6 @@ app.Run();
 // -------------------------------------------------------------
 public record LoginRequest(string Username, string Password);
 public record ChangePasswordRequest(string Username, string OldPassword, string NewPassword);
+public record LoginResponse(string Token, string Role, string RefreshToken);
+public record RefreshResponse(string Token, string RefreshToken);
+public record RefreshRequest(string Username, string Role, string RefreshToken);
