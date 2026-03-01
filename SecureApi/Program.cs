@@ -19,7 +19,7 @@ builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
 
 // -------------------------------------------------------------
-// CORS (CORRECT & FONCTIONNEL)
+// CORS
 // -------------------------------------------------------------
 builder.Services.AddCors(options =>
 {
@@ -58,13 +58,8 @@ var app = builder.Build();
 // -------------------------------------------------------------
 // MIDDLEWARE
 // -------------------------------------------------------------
-app.Use(async (context, next) =>
-{
-    Console.WriteLine($"{context.Request.Method} {context.Request.Path}");
-    await next();
-});
-
-app.UseCors("AivoCors");       // ← IMPORTANT : AVANT Auth
+app.UseRouting();              // ← CRITIQUE : permet à OPTIONS de fonctionner
+app.UseCors("AivoCors");       // ← AVANT Auth
 app.UseAuthentication();
 app.UseAuthorization();
 
