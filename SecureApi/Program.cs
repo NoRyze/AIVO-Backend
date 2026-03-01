@@ -51,14 +51,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+// -------------------------------------------------------------
+// AUTHORIZATION (admin / user)
+// -------------------------------------------------------------
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("admin", policy => policy.RequireRole("admin"));
+    options.AddPolicy("user", policy => policy.RequireRole("user"));
+});
 
 var app = builder.Build();
 
 // -------------------------------------------------------------
 // MIDDLEWARE
 // -------------------------------------------------------------
-app.UseRouting();              // ← CRITIQUE : permet à OPTIONS de fonctionner
+app.UseRouting();              // ← CRITIQUE pour OPTIONS + CORS
 app.UseCors("AivoCors");       // ← AVANT Auth
 app.UseAuthentication();
 app.UseAuthorization();
@@ -142,7 +149,7 @@ app.MapPost("/auth/refresh", (RefreshRequest req,
 });
 
 // -------------------------------------------------------------
-// ENDPOINT SÉCURISÉ
+// ENDPOINT SÉCURISÉ (test)
 // -------------------------------------------------------------
 app.MapGet("/secure/data", (ClaimsPrincipal user) =>
 {
@@ -175,6 +182,41 @@ app.MapPost("/auth/change-password", async (
 
     return Results.Ok(new { success = true });
 });
+
+// -------------------------------------------------------------
+// ADMIN — STATS
+// -------------------------------------------------------------
+app.MapGet("/admin/stats", () =>
+{
+    return Results.Ok(new {
+        users = 2,
+        sessions = 5,
+        suspicious = 1
+    });
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// ADMIN — USERS
+// -------------------------------------------------------------
+app.MapGet("/admin/users", () =>
+{
+    return Results.Ok(new[] {
+        new { username = "admin", role = "admin" },
+        new { username = "user", role = "user" }
+    });
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// ADMIN — REVOKE ALL SESSIONS
+// -------------------------------------------------------------
+app.MapPost("/admin/revoke-all", (ISessionRepository repo) =>
+{
+    repo.RevokeAllSessions();
+    return Results.Ok(new { success = true });
+})
+.RequireAuthorization("admin");
 
 app.Run();
 

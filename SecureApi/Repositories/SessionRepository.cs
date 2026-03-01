@@ -50,6 +50,16 @@ public class SessionRepository : ISessionRepository
         return SaveAsync();
     }
 
+    public void RevokeAllSessions()
+    {
+        foreach (var session in _sessions.Values)
+        {
+            session.IsRevoked = true;
+        }
+
+        SaveAsync().Wait();
+    }
+
     public Task<IEnumerable<Session>> GetSessionsForUserAsync(string username)
     {
         var result = _sessions.Values.Where(s => s.Username == username);

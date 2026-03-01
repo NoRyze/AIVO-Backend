@@ -9,4 +9,7 @@ public interface ISessionRepository
     Task RevokeSessionAsync(string sessionId);
     Task RevokeAllSessionsAsync(string username);
     Task<IEnumerable<Session>> GetSessionsForUserAsync(string username);
+
+    // Méthode globale pour l'admin
+    void RevokeAllSessions();
 }
