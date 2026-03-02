@@ -22,7 +22,7 @@ builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
 builder.Services.AddSingleton<DocumentService>();
 
 // -------------------------------------------------------------
-// CORS
+// CORS (CORRIGÉ — suppression de AllowCredentials())
 // -------------------------------------------------------------
 builder.Services.AddCors(options =>
 {
@@ -32,9 +32,9 @@ builder.Services.AddCors(options =>
             "https://graceful-lamington-186ce2.netlify.app",
             "https://aivo-pwa.pages.dev"
         )
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+        .AllowAnyHeader()
+        .AllowAnyMethod();
+        // ❌ PAS de AllowCredentials()
     });
 });
 
@@ -250,11 +250,9 @@ app.MapGet("/admin/logs", () =>
 })
 .RequireAuthorization("admin");
 
-app.Run();
-
 // -------------------------------------------------------------
 // DOCUMENTS
-//--------------------------------------------------------------
+// -------------------------------------------------------------
 app.MapPost("/documents/upload", async (
     HttpContext ctx,
     DocumentService docs,
@@ -267,7 +265,7 @@ app.MapPost("/documents/upload", async (
     var file = ctx.Request.Form.Files.FirstOrDefault();
     if (file == null)
         return Results.BadRequest(new { error = "no_file"});
-    
+
     var saved = docs.SaveFile(user, file);
 
     log.Write($"Document uploaded by {user}: {saved.FileName}");
@@ -275,9 +273,10 @@ app.MapPost("/documents/upload", async (
     return Results.Ok(saved);
 })
 .RequireAuthorization();
-// ---------------------------------------------------------------
-// Liste des Documents utilisateur 
-// ---------------------------------------------------------------
+
+// -------------------------------------------------------------
+// LIST DOCUMENTS
+// -------------------------------------------------------------
 app.MapGet("/documents/list", (
     HttpContext ctx,
     DocumentService docs) =>
@@ -291,9 +290,9 @@ app.MapGet("/documents/list", (
 })
 .RequireAuthorization();
 
-// ----------------------------------------------------------------
-// Supprimer un documents
-// ----------------------------------------------------------------
+// -------------------------------------------------------------
+// DELETE DOCUMENT
+// -------------------------------------------------------------
 app.MapDelete("/documents/delete/{id}", (
     string id,
     HttpContext ctx,
@@ -321,9 +320,9 @@ app.MapDelete("/documents/delete/{id}", (
 })
 .RequireAuthorization();
 
-// -------------------------------------------------------------------
-// Télécharger un document
-// -------------------------------------------------------------------
+// -------------------------------------------------------------
+// DOWNLOAD DOCUMENT
+// -------------------------------------------------------------
 app.MapGet("/documents/download/{id}", (
     string id,
     HttpContext ctx,
@@ -347,7 +346,6 @@ app.MapGet("/documents/download/{id}", (
 })
 .RequireAuthorization();
 
-
 // -------------------------------------------------------------
 // RECORDS
 // -------------------------------------------------------------
@@ -356,3 +354,5 @@ public record ChangePasswordRequest(string Username, string OldPassword, string 
 public record LoginResponse(string Token, string Role, string RefreshToken);
 public record RefreshResponse(string Token, string RefreshToken);
 public record RefreshRequest(string Username, string Role, string RefreshToken);
+
+app.Run();
