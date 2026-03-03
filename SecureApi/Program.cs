@@ -6,7 +6,6 @@ using SecureApi.Models;
 using SecureApi.Services;
 using SecureApi.Repositories;
 using BCrypt.Net;
-using System.Security.Cryptography.X509Certificates;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +21,7 @@ builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
 builder.Services.AddSingleton<DocumentService>();
 
 // -------------------------------------------------------------
-// CORS (CORRIGÉ — suppression de AllowCredentials())
+// CORS
 // -------------------------------------------------------------
 builder.Services.AddCors(options =>
 {
@@ -34,7 +33,6 @@ builder.Services.AddCors(options =>
         )
         .AllowAnyHeader()
         .AllowAnyMethod();
-        // ❌ PAS de AllowCredentials()
     });
 });
 
@@ -58,7 +56,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 // -------------------------------------------------------------
-// AUTHORIZATION (admin / user)
+// AUTHORIZATION
 // -------------------------------------------------------------
 builder.Services.AddAuthorization(options =>
 {
@@ -156,7 +154,7 @@ app.MapPost("/auth/refresh", (
 });
 
 // -------------------------------------------------------------
-// ENDPOINT SÉCURISÉ (test)
+// ENDPOINT SÉCURISÉ
 // -------------------------------------------------------------
 app.MapGet("/secure/data", (ClaimsPrincipal user) =>
 {
@@ -198,7 +196,8 @@ app.MapPost("/auth/change-password", async (
 // -------------------------------------------------------------
 app.MapGet("/admin/stats", () =>
 {
-    return Results.Ok(new {
+    return Results.Ok(new
+    {
         users = 2,
         sessions = 5,
         suspicious = 1
@@ -264,7 +263,7 @@ app.MapPost("/documents/upload", async (
 
     var file = ctx.Request.Form.Files.FirstOrDefault();
     if (file == null)
-        return Results.BadRequest(new { error = "no_file"});
+        return Results.BadRequest(new { error = "no_file" });
 
     var saved = docs.SaveFile(user, file);
 
@@ -274,9 +273,6 @@ app.MapPost("/documents/upload", async (
 })
 .RequireAuthorization();
 
-// -------------------------------------------------------------
-// LIST DOCUMENTS
-// -------------------------------------------------------------
 app.MapGet("/documents/list", (
     HttpContext ctx,
     DocumentService docs) =>
@@ -290,9 +286,6 @@ app.MapGet("/documents/list", (
 })
 .RequireAuthorization();
 
-// -------------------------------------------------------------
-// DELETE DOCUMENT
-// -------------------------------------------------------------
 app.MapDelete("/documents/delete/{id}", (
     string id,
     HttpContext ctx,
@@ -320,9 +313,6 @@ app.MapDelete("/documents/delete/{id}", (
 })
 .RequireAuthorization();
 
-// -------------------------------------------------------------
-// DOWNLOAD DOCUMENT
-// -------------------------------------------------------------
 app.MapGet("/documents/download/{id}", (
     string id,
     HttpContext ctx,
@@ -355,4 +345,7 @@ public record LoginResponse(string Token, string Role, string RefreshToken);
 public record RefreshResponse(string Token, string RefreshToken);
 public record RefreshRequest(string Username, string Role, string RefreshToken);
 
-app.Run(); 
+// -------------------------------------------------------------
+// RUN
+// -------------------------------------------------------------
+app.Run();
