@@ -196,8 +196,7 @@ app.MapPost("/auth/change-password", async (
 // -------------------------------------------------------------
 app.MapGet("/admin/stats", () =>
 {
-    return Results.Ok(new
-    {
+    return Results.Ok(new {
         users = 2,
         sessions = 5,
         suspicious = 1
@@ -337,6 +336,11 @@ app.MapGet("/documents/download/{id}", (
 .RequireAuthorization();
 
 // -------------------------------------------------------------
+// RUN
+// -------------------------------------------------------------
+app.Run();
+
+// -------------------------------------------------------------
 // RECORDS
 // -------------------------------------------------------------
 public record LoginRequest(string Username, string Password);
@@ -344,8 +348,3 @@ public record ChangePasswordRequest(string Username, string OldPassword, string 
 public record LoginResponse(string Token, string Role, string RefreshToken);
 public record RefreshResponse(string Token, string RefreshToken);
 public record RefreshRequest(string Username, string Role, string RefreshToken);
-
-// -------------------------------------------------------------
-// RUN
-// -------------------------------------------------------------
-app.Run();
