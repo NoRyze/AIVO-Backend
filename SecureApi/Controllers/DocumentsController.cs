@@ -1,5 +1,3 @@
-using System.Reflection.Metadata;
-using System.Runtime.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SecureApi.Services;
@@ -34,8 +32,8 @@ public class DocumentsController : ControllerBase
         if (file == null)
             return BadRequest("Aucun fichier reçu.");
 
-        var username = User.Identity?.Name ?? "unknown"; 
-        var doc = _service.SaverFile(username, file);
+        var username = User.Identity?.Name ?? "unknown";
+        var doc = _service.SaveFile(username, file);   // ← CORRECT
 
         return Ok(doc);
     }
