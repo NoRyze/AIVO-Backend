@@ -15,16 +15,13 @@ public class DocumentsController : ControllerBase
         _service = service;
     }
 
-    // GET /documents
     [Authorize]
     [HttpGet]
     public IActionResult GetAll()
     {
-        var docs = _service.GetAll();
-        return Ok(docs);
+        return Ok(_service.GetAll());
     }
 
-    // POST /documents (ADMIN ONLY)
     [Authorize(Roles = "admin")]
     [HttpPost]
     public IActionResult Upload([FromForm] IFormFile file)
@@ -33,12 +30,11 @@ public class DocumentsController : ControllerBase
             return BadRequest("Aucun fichier reçu.");
 
         var username = User.Identity?.Name ?? "unknown";
-        var doc = _service.SaveFile(username, file);   // ← CORRECT
+        var doc = _service.SaveFile(username, file);
 
         return Ok(doc);
     }
 
-    // DELETE /documents/{id} (ADMIN ONLY)
     [Authorize(Roles = "admin")]
     [HttpDelete("{id}")]
     public IActionResult Delete(string id)
