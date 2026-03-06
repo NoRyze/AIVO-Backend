@@ -19,6 +19,7 @@ builder.Services.AddSingleton<LogService>();
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<ISessionRepository, SessionRepository>();
 builder.Services.AddSingleton<DocumentService>();
+builder.Services.AddSingleton<CategoryService>();
 
 // -------------------------------------------------------------
 // CORS
@@ -332,6 +333,110 @@ app.MapGet("/documents/download/{id}", (
 
     var bytes = File.ReadAllBytes(doc.Path);
     return Results.File(bytes, "application/octet-stream", doc.FileName);
+})
+.RequireAuthorization();
+
+// -------------------------------------------------------------
+// CATEGORIES – LISTE
+// -------------------------------------------------------------
+app.MapGet("/categories", (CategoryService svc) =>
+{
+    return Results.Ok(svc.GetAll());
+})
+.RequireAuthorization();
+
+// -------------------------------------------------------------
+// CATEGORIES – CREATION
+// -------------------------------------------------------------
+app.MapPost("/categories", (string name, CategoryService svc) =>
+{
+    var cat = svc.Create(name);
+    return Results.Ok(cat);
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// CATEGORIES – RENOMMER
+// -------------------------------------------------------------
+app.MapPut("/categories/{id}", (string id, string name, CategoryService svc) =>
+{
+    svc.RenameCategory(id, name);
+    return Results.Ok();
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// CATEGORIES – SUPPRIMER
+// -------------------------------------------------------------
+app.MapDelete("/categories/{id}", (string id, CategoryService svc) =>
+{
+    svc.DeleteCategory(id);
+    return Results.Ok();
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// SOUS-DOCUMENTS – AJOUT
+// -------------------------------------------------------------
+app.MapPost("/categories/{id}/subdocs", (string id, string label, CategoryService svc) =>
+{
+    var sub = svc.AddSubDoc(id, label);
+    if (sub == null) return Results.NotFound();
+    return Results.Ok(sub);
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// SOUS-DOCUMENTS – RENOMMER
+// -------------------------------------------------------------
+app.MapPut("/subdocs/{id}", (string id, string label, CategoryService svc) =>
+{
+    svc.RenameSubDoc(id, label);
+    return Results.Ok();
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// SOUS-DOCUMENTS – SUPPRIMER
+// -------------------------------------------------------------
+app.MapDelete("/subdocs/{id}", (string id, CategoryService svc) =>
+{
+    svc.DeleteSubDoc(id);
+    return Results.Ok();
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// SOUS-DOCUMENTS – UPLOAD FICHIER
+// -------------------------------------------------------------
+app.MapPost("/subdocs/{id}/upload", async (string id, IFormFile file, CategoryService svc) =>
+{
+    var sub = svc.GetSubDoc(id);
+    if (sub == null) return Results.NotFound();
+
+    Directory.CreateDirectory("Data/SubDocs");
+    var path = Path.Combine("Data/SubDocs", $"{sub.Id}_{file.FileName}");
+
+    using var stream = new FileStream(path, FileMode.Create);
+    await file.CopyToAsync(stream);
+
+    sub.FileName = file.FileName;
+    sub.FilePath = path;
+
+    return Results.Ok(sub);
+})
+.RequireAuthorization("admin");
+
+// -------------------------------------------------------------
+// SOUS-DOCUMENTS – DOWNLOAD
+// -------------------------------------------------------------
+app.MapGet("/subdocs/{id}/download", (string id, CategoryService svc) =>
+{
+    var sub = svc.GetSubDoc(id);
+    if (sub == null || sub.FilePath == null) return Results.NotFound();
+
+    var bytes = File.ReadAllBytes(sub.FilePath);
+    return Results.File(bytes, "application/octet-stream", sub.FileName ?? "document");
 })
 .RequireAuthorization();
 
