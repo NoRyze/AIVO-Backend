@@ -35,7 +35,7 @@ public class DocumentsController : ControllerBase
             return BadRequest("Aucun fichier reçu.");
 
         var username = User.Identity?.Name ?? "unknown"; 
-        var doc = _service.SAverFile(username, file);
+        var doc = _service.SaverFile(username, file);
 
         return Ok(doc);
     }
