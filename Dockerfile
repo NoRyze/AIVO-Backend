@@ -7,9 +7,7 @@ COPY SecureApi/SecureApi.csproj SecureApi/
 RUN dotnet restore SecureApi/SecureApi.csproj
 
 # Copy the rest of the source
-COPY . .
-
-# Build and publish
+COPY SecureApi/ SecureApi/
 RUN dotnet publish SecureApi/SecureApi.csproj -c Release -o /app/out
 
 # Runtime stage
